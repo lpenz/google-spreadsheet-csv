@@ -252,7 +252,7 @@ machine in ~/.netrc, see netrc(5).
 '''
                         )
     parser.add_option("-v", "--verbose", dest="verbose",
-                      action="store_true", default=True,
+                      action="store_true", default=False,
                       help="Be verbose.")
     parser.add_option("-i", "--input", dest="input",
                       default=None, help="Input file.")
