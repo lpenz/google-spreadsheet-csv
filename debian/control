@@ -1,0 +1,25 @@
+Source: google-spreadsheet-csv
+Section: python
+Priority: extra
+Maintainer: Leandro Lisboa Penz <llpenz@gmail.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.2
+Vcs-Browser: http://github.com/lpenz/git-spreadsheet-csv
+Vcs-Git: git://github.com/lpenz/git-spreadsheet-csv.git
+Homepage: http://github.com/lpenz/git-spreadsheet-csv
+
+Package: google-spreadsheet-csv
+Architecture: all
+Depends: ${misc:Depends}, python, ${python:Depends}
+Description:Sync a google spreadsheet with a CSV file
+  google-spreadsheet-csv is a command-line tool that syncs a google
+  spreadsheet with a CSV file by using the google spreadsheet API.
+  .
+  When getting a spreadsheet, all data is grabbed until the first empty line or
+  the end of the spreadsheet.
+  .
+  When sending data, the headers of the CSV and spreadsheet must match.
+  Otherwise, the operation is aborted and an error is reported. After that, the
+  data in the CSV file is sent, and surplus data in the spreadsheet is
+  removed.
+
