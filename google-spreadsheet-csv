@@ -18,7 +18,7 @@ import codecs
 import locale
 import cStringIO
 
-PROGRAM_NAME = 'google-spreadsheet-tool'
+PROGRAM_NAME = 'google-spreadsheet-csv'
 PROGRAM_VERSION = '0.0'
 
 __version__ = PROGRAM_VERSION
@@ -244,7 +244,7 @@ Usage: %prog [-h]
 ''',
                           version="%prog "+__version__,
                           description='''\
-google-spreadsheet-tool is a program used to sync or get data from a google
+google-spreadsheet-csv is a program used to sync or get data from a google
 spreadsheet. It interfaces locally with CSV files.
 
 User and password can be passed on the command line or by creating a google.com
