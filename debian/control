@@ -10,7 +10,7 @@ Homepage: http://github.com/lpenz/git-spreadsheet-csv
 
 Package: google-spreadsheet-csv
 Architecture: all
-Depends: ${misc:Depends}, python, ${python:Depends}
+Depends: ${misc:Depends}, python, ${python:Depends}, python-gdata
 Description: Sync a google spreadsheet with a CSV file
  google-spreadsheet-csv is a command-line tool that syncs a google
  spreadsheet with a CSV file by using the google spreadsheet API.
