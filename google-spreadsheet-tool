@@ -1,0 +1,195 @@
+#!/usr/bin/python
+
+try: 
+  from xml.etree import ElementTree
+except ImportError:
+  from elementtree import ElementTree
+import gdata.spreadsheet.service
+import gdata.service
+import atom.service
+import gdata.spreadsheet
+import atom
+import os
+from optparse import OptionParser
+from netrc import netrc
+import csv
+import sys
+import codecs
+import locale
+import cStringIO
+
+PROGRAM_NAME = 'google-spreadsheet-tool'
+PROGRAM_VERSION = '0.0'
+
+__version__ = PROGRAM_VERSION
+
+# Useful functions: ##########################################################
+
+class Dprint(object):
+    def __init__(self, config):
+        self.enable = config.verbose
+    def __call__(self, s):
+        if not self.enable:
+            return
+        sys.stdout.write(s)
+
+def eprint(s):
+    sys.stderr.write(s)
+
+# CSV missing stuff: #########################################################
+
+class CSVUnicodeWriter:
+    """
+    A CSV writer which will write rows to CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding=None, **kwds):
+        # Redirect output to a queue
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        if not encoding:
+            lang, encoding = locale.getdefaultlocale()
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def writerow(self, row):
+        self.writer.writerow([s.encode("utf-8") for s in row])
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # write to the target stream
+        self.stream.write(data)
+        # empty queue
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+
+# Google connection: #########################################################
+
+def connect(config, doc, worksheet):
+    try:
+        f = open('/home/%s/.netrc' % os.environ['USER'])
+    except IOError:
+        eprint('could not open /home/%s/.netrc\n' % os.environ['USER'])
+        sys.exit(1)
+    else:
+        f.close()
+    auth = netrc().authenticators('google.com')
+    client = gdata.spreadsheet.service.SpreadsheetsService()
+    client.ClientLogin(auth[0], auth[2])
+    feed = client.GetSpreadsheetsFeed()
+    sskey = None
+    for s in feed.entry:
+        if s.title.text != doc:
+            continue
+        sskey = s.id.text.rsplit('/',1)[1]
+        break
+    if sskey == None:
+        raise IOError, 'spreadsheet %s not found' % doc
+
+    wskey = None
+    for w in client.GetWorksheetsFeed(sskey).entry:
+        if w.title.text != worksheet:
+            continue
+        wskey = w.id.text.rsplit('/', 1)[1]
+        break
+    if wskey == None:
+        raise IOError, 'spreadsheet %s ok, worksheet %s not found' % (doc, worksheet)
+    return client, sskey, wskey
+
+    #rows = client.GetListFeed(sskey, wskey)
+    #newrow = dict([(k, v.text) for k, v in rows.entry[0].custom.items()])
+    #newrow['cost'] = '5'
+    #entry = client.UpdateRow(rows.entry[0], newrow)
+    #for l in client.GetListFeed(sskey, wskey).entry:
+    #    for k, v in l.custom.items():
+    #        print (k, v.text)
+
+# Get: #######################################################################
+
+def gss_get(config, doc, worksheet):
+    if config.input:
+        parser.error('invalid input argument')
+    if not config.output:
+        fdout = sys.stdout
+    else:
+        #fdout = codecs.open(config.output, 'w', encoding='utf-8')
+        fdout = open(config.output, 'w')
+    csvout = CSVUnicodeWriter(fdout)
+    client, sskey, wskey = connect(config, doc, worksheet)
+    cellfeed = client.GetCellsFeed(sskey, wskey)
+    fields = []
+    for c in cellfeed.entry:
+        if c.title.text[1:] != '1':
+            continue
+        fields.append(c.content.text.lower())
+    csvout.writerow(fields)
+    listfeed = client.GetListFeed(sskey, wskey)
+    for lf in listfeed.entry:
+        lu = [ lf.custom[f].text for f in fields ]
+        lt = []
+        for c in lu:
+            ct = c
+            if isinstance(c, type(None)):
+                ct = u''
+            #elif isinstance(c, type('')):
+            #    ct = c.decode('utf-8')
+            lt.append(ct)
+        csvout.writerow(lt)
+
+# Send: ######################################################################
+
+def gss_send(config, doc, worksheet):
+    raise NotImplementedError
+    #rows = client.GetListFeed(sskey, wskey)
+    #newrow = dict([(k, v.text) for k, v in rows.entry[0].custom.items()])
+    #newrow['cost'] = '5'
+    #entry = client.UpdateRow(rows.entry[0], newrow)
+    #for l in client.GetListFeed(sskey, wskey).entry:
+    #    for k, v in l.custom.items():
+    #        print (k, v.text)
+
+# Main: ######################################################################
+
+def main():
+    parser = OptionParser(usage='''\
+Usage: %prog [-h]
+       %prog [-v] [-i <input>] <send> <doc> <worksheet>
+       %prog [-v] [-o <output>] <get> <doc> <worksheet>\
+''',
+                          version="%prog "+__version__,
+                          description='''\
+google-spreadsheet-tool is a program used to sync or get data from a google
+spreadsheet. It interfaces locally with CSV files.
+
+User and password can be passed on the command line or by creating a google.com
+machine in ~/.netrc, see netrc(5).
+'''
+                        )
+    parser.add_option("-v", "--verbose", dest="verbose",
+                      action="store_true", default=True,
+                      help="Be verbose.")
+    parser.add_option("-i", "--input", dest="input",
+                      default=None, help="Input file.")
+    parser.add_option("-o", "--output", dest="output",
+                      default=None, help="Output file.")
+    (config, args) = parser.parse_args()
+    if len(args) != 3:
+        parser.error('expected arguments not found')
+    cmds = {
+            'get' : gss_get,
+            'send' : gss_send,
+            }
+    if not cmds.has_key(args[0]):
+        parser.error('command must be one of: %s' % ', '.join(cmds.keys()))
+    cmds[args[0]](config, args[1], args[2])
+
+
+if __name__ == '__main__':
+    main()
+
