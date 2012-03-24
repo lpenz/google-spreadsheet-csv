@@ -212,6 +212,8 @@ def gss_send(config, doc, worksheet):
         newrow = {}
         i = 0
         for f in fields:
+            if i > len(l):
+                raise NameError, 'row has less columns than header (%d < %d):\n%s' % (i, len(fields), l)
             newrow[f] = l[i]
             i = i + 1
         csvlines.append(newrow)
