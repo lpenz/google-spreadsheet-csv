@@ -200,7 +200,7 @@ def gss_send(config, doc, worksheet):
     for l in csvin:
         for c in l:
             if not c in fields:
-                raise NameError, 'CSV field %s not found in spreadsheet' % c
+                raise NameError, 'CSV field %s not found in spreadsheet; found fields: %s' % (c, ', '.join(fields))
             found.add(c)
         break
     for f in fields:
