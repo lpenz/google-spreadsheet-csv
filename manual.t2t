@@ -14,7 +14,7 @@ google-spreadsheet-csv - Sync a google spreadsheet with a CSV file.
 
 **google-spreadsheet-csv** [-v/--verbose] [-o/--output=<file>] get <spreadsheet> <worksheet>
 
-**google-spreadsheet-csv** [-v/--verbose] [-i/--input=<file>] send <spreadsheet> <worksheet>
+**google-spreadsheet-csv** [-v/--verbose] [-i/--input=<file>] [-b] send <spreadsheet> <worksheet>
 
 
 
@@ -45,6 +45,8 @@ in //~/.netrc//. See **netrc**(5) for more information.
 **-i, --input=<file>** Input CSV filename.
 
 **-o, --output=<file>** Output CSV filename.
+
+**-b** Blanks out remaining rows. We delete them by default.
 
 
 
