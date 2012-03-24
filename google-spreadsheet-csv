@@ -203,7 +203,9 @@ def gss_send(config, doc, worksheet):
                 raise NameError, 'CSV field %s not found in spreadsheet; found fields: %s' % (c, ', '.join(fields))
             found.add(c)
         break
+    blankrow = {}
     for f in fields:
+        blankrow[f] = ''
         if f in found:
             continue
         raise NameError, 'spreadsheet field %s not found in CSV' % f
@@ -223,17 +225,39 @@ def gss_send(config, doc, worksheet):
     tcsv = len(csvlines)
     t = max(tgss, tcsv)
     while i < tgss and i < tcsv:
-        dprint('%03d/%03d: update\n' % (i, t))
-        client.UpdateRow(listfeed.entry[i], csvlines[i])
+        skip = True
+        diff = None
+        for f in fields:
+            f1 = csvlines[i][f]
+            f2 = unicode(listfeed.entry[i].custom[f].text)
+            if f2 == u'None':
+                f2 = u''
+            if f1 != f2:
+                skip = False
+                diff = f
+                break
+        if not skip:
+            dprint('%03d/%03d: update, field %s differs; %s != %s\n' % (i+1, t, diff, f1, f2))
+            client.UpdateRow(listfeed.entry[i], csvlines[i])
+        else:
+            dprint('%03d/%03d: contents are the same, skip\n' % (i+1, t))
         i = i + 1
+    ig0 = i
     while i < tcsv:
-        dprint('%03d/%03d: insert\n' % (i, t))
+        dprint('%03d/%03d: insert\n' % (i+1, t))
         client.InsertRow(csvlines[i], sskey, wskey)
         i = i + 1
     ig0 = i
     while i < tgss:
-        dprint('%03d/%03d: delete\n' % (i, t))
-        client.DeleteRow(listfeed.entry[len(listfeed.entry) - (i - ig0) - 1])
+        if config.blank:
+            dprint('%03d/%03d: blank\n' % (i+1, t))
+            try:
+                client.UpdateRow(listfeed.entry[len(listfeed.entry) - (i - ig0) - 1], blankrow)
+            except gdata.service.RequestError:
+                pass
+        else:
+            dprint('%03d/%03d: delete\n' % (i+1, t))
+            client.DeleteRow(listfeed.entry[len(listfeed.entry) - (i - ig0) - 1])
         i = i + 1
 
 # Main: ######################################################################
@@ -260,6 +284,9 @@ machine in ~/.netrc, see netrc(5).
                       default=None, help="Input file.")
     parser.add_option("-o", "--output", dest="output",
                       default=None, help="Output file.")
+    parser.add_option("-b", "--blank-rows", dest="blank",
+                      action="store_true", default=False,
+                      help="Blank surplus rows in spreadsheet instead of deleting them.")
     (config, args) = parser.parse_args()
     if len(args) != 3:
         parser.error('expected arguments not found')
