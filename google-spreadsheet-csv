@@ -110,9 +110,9 @@ def connect(config, doc, worksheet):
     dprint = Dprint(config)
     dprint('Connecting\n')
     try:
-        f = open('/home/%s/.netrc' % os.environ['USER'])
+        f = open('%s/.netrc' % os.path.expanduser('~'))
     except IOError:
-        eprint('could not open /home/%s/.netrc\n' % os.environ['USER'])
+        eprint('could not open %s/.netrc\n' % os.path.expanduser('~'))
         sys.exit(1)
     else:
         f.close()
