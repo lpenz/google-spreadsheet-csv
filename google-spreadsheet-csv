@@ -17,9 +17,10 @@ import sys
 import codecs
 import locale
 import cStringIO
+import re
 
 PROGRAM_NAME = "google-spreadsheet-csv"
-PROGRAM_VERSION = "1.1"
+PROGRAM_VERSION = "1.2"
 
 __version__ = PROGRAM_VERSION
 
@@ -110,9 +111,9 @@ def connect(config, doc, worksheet):
     dprint = Dprint(config)
     dprint('Connecting\n')
     try:
-        f = open('/home/%s/.netrc' % os.environ['USER'])
+        f = open('%s/.netrc' % os.path.expanduser('~'))
     except IOError:
-        eprint('could not open /home/%s/.netrc\n' % os.environ['USER'])
+        eprint('could not open %s/.netrc\n' % os.path.expanduser('~'))
         sys.exit(1)
     else:
         f.close()
@@ -151,7 +152,8 @@ def google_get_header(config, client, sskey, wskey):
     for c in cellfeed.entry:
         if c.title.text[1:] != '1':
             continue
-        fields.append(c.content.text.lower())
+        field = re.sub(r'[^a-zA-Z]', '', c.content.text.lower())
+        fields.append(field)
     return fields
 
 # Get: #######################################################################
