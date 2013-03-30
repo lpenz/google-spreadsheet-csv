@@ -17,6 +17,7 @@ import sys
 import codecs
 import locale
 import cStringIO
+import re
 
 PROGRAM_NAME = "google-spreadsheet-csv"
 PROGRAM_VERSION = "1.1"
@@ -151,7 +152,8 @@ def google_get_header(config, client, sskey, wskey):
     for c in cellfeed.entry:
         if c.title.text[1:] != '1':
             continue
-        fields.append(c.content.text.lower())
+        field = re.sub(r'[^a-zA-Z]', '', c.content.text.lower())
+        fields.append(field)
     return fields
 
 # Get: #######################################################################
