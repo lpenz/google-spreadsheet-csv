@@ -1,3 +1,9 @@
+google-spreadsheet-csv (1.2-1) unstable; urgency=low
+
+  * New upstream version; fixes for Mac and fields with special chars.
+
+ -- Leandro Lisboa Penz <lpenz@lpenz.org>  Sat, 30 Mar 2013 15:46:27 -0300
+
 google-spreadsheet-csv (1.1-2) unstable; urgency=low
 
   * Signing with new key.
