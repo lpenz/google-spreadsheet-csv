@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/lpenz/google-spreadsheet-csv.svg?branch=master)](https://travis-ci.org/lpenz/google-spreadsheet-csv)
 
 google-spreadsheet-csv
 ======================
