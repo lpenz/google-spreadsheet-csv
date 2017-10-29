@@ -1,14 +1,8 @@
 #!/usr/bin/python
 
-try: 
-  from xml.etree import ElementTree
-except ImportError:
-  from elementtree import ElementTree
 import gdata.spreadsheet.service
 import gdata.service
-import atom.service
 import gdata.spreadsheet
-import atom
 import os
 from optparse import OptionParser
 from netrc import netrc
@@ -24,18 +18,22 @@ PROGRAM_VERSION = "1.2"
 
 __version__ = PROGRAM_VERSION
 
+
 # Useful functions: ##########################################################
 
 class Dprint(object):
     def __init__(self, config):
         self.enable = config.verbose
+
     def __call__(self, s):
         if not self.enable:
             return
         sys.stdout.write(s)
 
+
 def eprint(s):
     sys.stderr.write(s)
+
 
 # CSV missing stuff: #########################################################
 
@@ -43,6 +41,7 @@ class UTF8Recoder:
     """
     Iterator that reads an encoded stream and reencodes the input to UTF-8
     """
+
     def __init__(self, f, encoding):
         self.reader = codecs.getreader(encoding)(f)
 
@@ -68,7 +67,7 @@ class CSVUnicodeReader:
 
     def next(self):
         row = self.reader.next()
-        return [unicode(s, "utf-8") for s in row]
+        return [s.decode("utf-8") for s in row]
 
     def __iter__(self):
         return self
@@ -105,6 +104,7 @@ class CSVUnicodeWriter:
         for row in rows:
             self.writerow(row)
 
+
 # Google connection: #########################################################
 
 def connect(config, doc, worksheet):
@@ -127,10 +127,10 @@ def connect(config, doc, worksheet):
     for s in feed.entry:
         if s.title.text != doc:
             continue
-        sskey = s.id.text.rsplit('/',1)[1]
+        sskey = s.id.text.rsplit('/', 1)[1]
         break
-    if sskey == None:
-        raise IOError, 'spreadsheet %s not found' % doc
+    if sskey is None:
+        raise IOError('spreadsheet %s not found' % doc)
 
     dprint('Getting worksheets of %s\n' % doc)
     wskey = None
@@ -139,8 +139,9 @@ def connect(config, doc, worksheet):
             continue
         wskey = w.id.text.rsplit('/', 1)[1]
         break
-    if wskey == None:
-        raise IOError, 'spreadsheet %s ok, worksheet %s not found' % (doc, worksheet)
+    if wskey is None:
+        raise IOError('spreadsheet %s ok, worksheet %s not found' %
+                      (doc, worksheet))
     return client, sskey, wskey
 
 
@@ -156,9 +157,10 @@ def google_get_header(config, client, sskey, wskey):
         fields.append(field)
     return fields
 
+
 # Get: #######################################################################
 
-def gss_get(config, doc, worksheet):
+def gss_get(parser, config, doc, worksheet):
     dprint = Dprint(config)
     if config.input:
         parser.error('invalid input argument')
@@ -176,7 +178,7 @@ def gss_get(config, doc, worksheet):
     for lf in listfeed.entry:
         dprint('%03d/%03d: getting row\n' % (i, t))
         i = i + 1
-        lu = [ lf.custom[f].text for f in fields ]
+        lu = [lf.custom[f].text for f in fields]
         lt = []
         for c in lu:
             ct = c
@@ -185,9 +187,10 @@ def gss_get(config, doc, worksheet):
             lt.append(ct)
         csvout.writerow(lt)
 
+
 # Send: ######################################################################
 
-def gss_send(config, doc, worksheet):
+def gss_send(parser, config, doc, worksheet):
     dprint = Dprint(config)
     if config.output:
         parser.error('invalid input argument')
@@ -201,8 +204,10 @@ def gss_send(config, doc, worksheet):
     found = set()
     for l in csvin:
         for c in l:
-            if not c in fields:
-                raise NameError, 'CSV field %s not found in spreadsheet; found fields: %s' % (c, ', '.join(fields))
+            if c not in fields:
+                raise NameError('CSV field %s not found in spreadsheet; '
+                                'found fields: %s' % (
+                                  c, ', '.join(fields)))
             found.add(c)
         break
     blankrow = {}
@@ -210,14 +215,16 @@ def gss_send(config, doc, worksheet):
         blankrow[f] = ''
         if f in found:
             continue
-        raise NameError, 'spreadsheet field %s not found in CSV' % f
+        raise NameError('spreadsheet field %s not found in CSV' % f)
     csvlines = []
     for l in csvin:
         newrow = {}
         i = 0
         for f in fields:
             if i > len(l):
-                raise NameError, 'row has less columns than header (%d < %d):\n%s' % (i, len(fields), l)
+                raise NameError(
+                  'row has less columns than header '
+                  '(%d < %d):\n%s' % (i, len(fields), l))
             newrow[f] = l[i]
             i = i + 1
         csvlines.append(newrow)
@@ -231,7 +238,7 @@ def gss_send(config, doc, worksheet):
         diff = None
         for f in fields:
             f1 = csvlines[i][f]
-            f2 = unicode(listfeed.entry[i].custom[f].text)
+            f2 = listfeed.entry[i].custom[f].text.decode()
             if f2 == u'None':
                 f2 = u''
             if f1 != f2:
@@ -239,28 +246,33 @@ def gss_send(config, doc, worksheet):
                 diff = f
                 break
         if not skip:
-            dprint('%03d/%03d: update, field %s differs; %s != %s\n' % (i+1, t, diff, f1, f2))
+            dprint('%03d/%03d: update, field %s differs; %s != %s\n' %
+                   (i + 1, t, diff, f1, f2))
             client.UpdateRow(listfeed.entry[i], csvlines[i])
         else:
-            dprint('%03d/%03d: contents are the same, skip\n' % (i+1, t))
+            dprint('%03d/%03d: contents are the same, skip\n' % (i + 1, t))
         i = i + 1
     ig0 = i
     while i < tcsv:
-        dprint('%03d/%03d: insert\n' % (i+1, t))
+        dprint('%03d/%03d: insert\n' % (i + 1, t))
         client.InsertRow(csvlines[i], sskey, wskey)
         i = i + 1
     ig0 = i
     while i < tgss:
         if config.blank:
-            dprint('%03d/%03d: blank\n' % (i+1, t))
+            dprint('%03d/%03d: blank\n' % (i + 1, t))
             try:
-                client.UpdateRow(listfeed.entry[len(listfeed.entry) - (i - ig0) - 1], blankrow)
+                client.UpdateRow(
+                  listfeed.entry[len(listfeed.entry) - (i - ig0) - 1],
+                  blankrow)
             except gdata.service.RequestError:
                 pass
         else:
-            dprint('%03d/%03d: delete\n' % (i+1, t))
-            client.DeleteRow(listfeed.entry[len(listfeed.entry) - (i - ig0) - 1])
+            dprint('%03d/%03d: delete\n' % (i + 1, t))
+            client.DeleteRow(
+                listfeed.entry[len(listfeed.entry) - (i - ig0) - 1])
         i = i + 1
+
 
 # Main: ######################################################################
 
@@ -270,7 +282,7 @@ Usage: %prog [-h]
        %prog [-v] [-i <input>] <send> <doc> <worksheet>
        %prog [-v] [-o <output>] <get> <doc> <worksheet>\
 ''',
-                          version="%prog "+__version__,
+                          version="%prog " + __version__,
                           description='''\
 google-spreadsheet-csv is a program used to sync or get data from a google
 spreadsheet. It interfaces locally with CSV files.
@@ -278,7 +290,7 @@ spreadsheet. It interfaces locally with CSV files.
 User and password can be passed on the command line or by creating a google.com
 machine in ~/.netrc, see netrc(5).
 '''
-                        )
+                          )
     parser.add_option("-v", "--verbose", dest="verbose",
                       action="store_true", default=False,
                       help="Be verbose.")
@@ -288,19 +300,20 @@ machine in ~/.netrc, see netrc(5).
                       default=None, help="Output file.")
     parser.add_option("-b", "--blank-rows", dest="blank",
                       action="store_true", default=False,
-                      help="Blank surplus rows in spreadsheet instead of deleting them.")
+                      help="Blank surplus rows in spreadsheet "
+                           "instead of deleting them."
+                      )
     (config, args) = parser.parse_args()
     if len(args) != 3:
         parser.error('expected arguments not found')
     cmds = {
-            'get' : gss_get,
-            'send' : gss_send,
-            }
-    if not cmds.has_key(args[0]):
+        'get': gss_get,
+        'send': gss_send,
+    }
+    if args[0] not in cmds.has_key:
         parser.error('command must be one of: %s' % ', '.join(cmds.keys()))
-    cmds[args[0]](config, args[1], args[2])
+    cmds[args[0]](parser, config, args[1], args[2])
 
 
 if __name__ == '__main__':
     main()
-
